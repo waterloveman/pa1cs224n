@@ -2,9 +2,7 @@ package cs224n.langmodel;
 
 import cs224n.util.Counter;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 /**
  * A dummy language model -- uses empirical unigram counts, plus a single
@@ -19,6 +17,10 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
   
   private Counter<String> wordCounter;
   private double total;
+  
+  private HashMap<Integer, Integer> freqOfFreq;
+  //uses Good-Turing
+  
 
 
   // -----------------------------------------------------------------------
@@ -27,7 +29,7 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
    * Constructs a new, empty unigram language model.
    */
   public SmoothedUnigramLanguageModel() {
-    System.out.println("BLAAAAHsadjpoqwjepoqwe");
+	freqOfFreq = new HashMap<Integer, Integer>();
     wordCounter = new Counter<String>();
     total = Double.NaN;
   }
@@ -62,6 +64,59 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
       }
     }
     total = wordCounter.totalCount();
+    freqOfFreq.put(0, (int) total);
+    Iterator<String> words = wordCounter.entries.keySet().iterator();
+    while(words.hasNext()) {
+    	String w = words.next();
+    	double d = (wordCounter.entries.get(w));
+    	int count = (int) d;
+    	if(freqOfFreq.containsKey(count)) {
+    		freqOfFreq.put(count, freqOfFreq.get(count)+1);
+    	}
+    	else {
+    		freqOfFreq.put(count, 1);
+    	}
+    }
+    //normalize total
+    Iterator<Integer> counts = freqOfFreq.keySet().iterator();
+    total = 0;
+    while(counts.hasNext())
+    {
+    	int i = counts.next();
+    	int freq = freqOfFreq.get(i);
+    	if (i == 0) {
+    		total += 1;
+    	}
+    	else {
+    		total += freq*goodTuring(i);
+    	}
+    }
+  }
+  
+//  private double goodTuring(double c) {
+//	  double k = 5;
+//	  if(c > k) {
+//		  return c;
+//	  }
+//	  double N1 = freqOfFreq.get(1);
+//	  double Nc = freqOfFreq.get((int) c);
+//	  double Nc1 = freqOfFreq.get((int) (c+1));
+//	  double Nk1 = freqOfFreq.get((int) (k+1));
+//	  double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
+//	  return cStar;
+//  }
+  
+  private double goodTuring(double c) {
+	  double k = 5;
+	  if(c > k) {
+		  return c;
+	  }
+	  double N1 = freqOfFreq.get(1);
+	  double Nc = freqOfFreq.get((int) c);
+	  double Nc1 = freqOfFreq.get((int) (c+1));
+	  double Nk1 = freqOfFreq.get((int) (k+1));
+	  double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
+	  return cStar;
   }
 
 
@@ -69,11 +124,8 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
 
   private double getWordProbability(String word) {
     double count = wordCounter.getCount(word);
-    if (count == 0) {                   // unknown word
-      // System.out.println("UNKNOWN WORD: " + sentence.get(index));
-      return 1.0 / (total + 1.0);
-    }
-    return count / (total + 1.0);
+    count = goodTuring(count);
+    return count / total;
   }
 
   /**
