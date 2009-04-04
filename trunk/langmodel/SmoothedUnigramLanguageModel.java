@@ -17,9 +17,9 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
   
   private Counter<String> wordCounter;
   private double total;
+  private double norm;
   
   private HashMap<Integer, Integer> freqOfFreq;
-  //uses Good-Turing
   
 
 
@@ -32,6 +32,7 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
 	freqOfFreq = new HashMap<Integer, Integer>();
     wordCounter = new Counter<String>();
     total = Double.NaN;
+    norm = 1.0;
   }
 
   /**
@@ -79,32 +80,19 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
     }
     //normalize total
     Iterator<Integer> counts = freqOfFreq.keySet().iterator();
-    total = 0;
+    norm = 0;
     while(counts.hasNext())
     {
     	int i = counts.next();
-    	int freq = freqOfFreq.get(i);
     	if (i == 0) {
-    		total += 1;
+    		norm += 1;
     	}
     	else {
-    		total += freq*goodTuring(i);
+    		norm += freqOfFreq.get(i)*goodTuring(i);
     	}
     }
+    norm = total / norm;
   }
-  
-//  private double goodTuring(double c) {
-//	  double k = 5;
-//	  if(c > k) {
-//		  return c;
-//	  }
-//	  double N1 = freqOfFreq.get(1);
-//	  double Nc = freqOfFreq.get((int) c);
-//	  double Nc1 = freqOfFreq.get((int) (c+1));
-//	  double Nk1 = freqOfFreq.get((int) (k+1));
-//	  double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
-//	  return cStar;
-//  }
   
   private double goodTuring(double c) {
 	  double k = 5;
@@ -118,6 +106,13 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
 	  double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
 	  return cStar;
   }
+  
+  private double absoluteDiscounting(double c) {
+	  if(c > 0) {
+		  return c - 0.75;
+	  }
+	  return 0;
+  }
 
 
   // -----------------------------------------------------------------------
@@ -125,7 +120,7 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
   private double getWordProbability(String word) {
     double count = wordCounter.getCount(word);
     count = goodTuring(count);
-    return count / total;
+    return count*norm / total;
   }
 
   /**
