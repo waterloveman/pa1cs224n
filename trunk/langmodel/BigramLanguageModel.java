@@ -3,9 +3,7 @@ package cs224n.langmodel;
 import cs224n.util.Counter;
 import cs224n.util.CounterMap;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.lang.*;
 
 /**
@@ -131,12 +129,17 @@ public class BigramLanguageModel implements LanguageModel {
    * checks if the probability distribution properly sums up to 1
    */
   public double checkModel() {
+    Random generator = new Random();
     double highestVarianceSum = 1.0; // Keep track of which sum differs from 1.0 the most
 
-    int numWordsToCheck = 100; // Totally arbitrary number!
+    int numWordsToCheck = 500; // Totally arbitrary number!
     int counter = 0;
-    for (String prevWord : bigramCounter.keySet()) {
-      if (counter++ >= numWordsToCheck) break;
+    String[] stringArr = new String[10]; // dummy array
+
+    String[] keySetWords = bigramCounter.keySet().toArray(stringArr);
+    for (int i = 0; i < numWordsToCheck; i++) {
+      int randomIndex = generator.nextInt(keySetWords.length);
+      String prevWord = keySetWords[randomIndex];
 
       double sum = 0.0;
       Counter<String> curCounter = bigramCounter.getCounter(prevWord);
@@ -147,7 +150,7 @@ public class BigramLanguageModel implements LanguageModel {
 
       System.out.println("Prev word is " + prevWord + ". Sum: " + sum);
 
-      if (Math.abs(highestVarianceSum - 1.0) < Math.abs(sum - 1.0))
+      if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
     }
     return highestVarianceSum;
