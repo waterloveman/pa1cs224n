@@ -66,10 +66,10 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
     }
     total = wordCounter.totalCount();
     freqOfFreq.put(0, (int) total);
-    Iterator<String> words = wordCounter.entries.keySet().iterator();
+    Iterator<String> words = wordCounter.keySet().iterator();
     while(words.hasNext()) {
     	String w = words.next();
-    	double d = (wordCounter.entries.get(w));
+    	double d = (wordCounter.getCount(w));
     	int count = (int) d;
     	if(freqOfFreq.containsKey(count)) {
     		freqOfFreq.put(count, freqOfFreq.get(count)+1);

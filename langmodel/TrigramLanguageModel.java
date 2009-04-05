@@ -13,7 +13,7 @@ import java.util.List;
  *
  * @author Dan Klein
  */
-public class NgramLanguageModel implements LanguageModel {
+public class TrigramLanguageModel implements LanguageModel {
 
   private static final String STOP = "</S>";
   
@@ -26,7 +26,7 @@ public class NgramLanguageModel implements LanguageModel {
   /**
    * Constructs a new, empty unigram language model.
    */
-  public NgramLanguageModel() {
+  public TrigramLanguageModel() {
     System.out.println("BLAAAAHsadjpoqwjepoqwe");
     wordCounter = new Counter<String>();
     total = Double.NaN;
@@ -38,7 +38,7 @@ public class NgramLanguageModel implements LanguageModel {
    * frequencies of all words (including the stop token) over the whole
    * collection of sentences are compiled.
    */
-  public NgramLanguageModel(Collection<List<String>> sentences) {
+  public TrigramLanguageModel(Collection<List<String>> sentences) {
     this();
     train(sentences);
   }
@@ -116,7 +116,7 @@ public class NgramLanguageModel implements LanguageModel {
       sum += getWordProbability(word);
     }
     
-    // remember to add the UNK. In this NgramLanguageModel
+    // remember to add the UNK. In this TrigramLanguageModel
     // we assume there is only one UNK, so we add...
     sum += 1.0 / (total + 1.0);
     
