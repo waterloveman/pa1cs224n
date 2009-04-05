@@ -144,7 +144,6 @@ public class BigramLanguageModel implements LanguageModel {
 	System.out.println("CurWord is " + word);
 	sum += getBigramProbability(prevWord, word);
       }
-      sum += 1.0 / (curCounter.totalCount() + 1.0);
 
       System.out.println("Prev word is " + prevWord + ". Sum: " + sum);
 
