@@ -99,6 +99,9 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
 	  if(c > k) {
 		  return c;
 	  }
+//	  if(c == 1) {
+//		  c = 0;
+//	  }
 	  double N1 = freqOfFreq.get(1);
 	  double Nc = freqOfFreq.get((int) c);
 	  double Nc1 = freqOfFreq.get((int) (c+1));
@@ -107,12 +110,12 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
 	  return cStar;
   }
   
-  private double absoluteDiscounting(double c) {
-	  if(c > 0) {
-		  return c - 0.75;
-	  }
-	  return 0;
-  }
+//  private double absoluteDiscounting(double c) {
+//	  if(c > 0) {
+//		  return c - 0.75;
+//	  }
+//	  return 0;
+//  }
 
 
   // -----------------------------------------------------------------------
@@ -120,7 +123,7 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
   private double getWordProbability(String word) {
     double count = wordCounter.getCount(word);
     count = goodTuring(count);
-    return count*norm / total;
+    return count * norm / total;
   }
 
   /**
