@@ -1,0 +1,32 @@
+SmoothedUnigramLanguageModel.java
+
+Language Model
+This is a unigram language model that uses simple Good-Turing discounting. In this form of Good-Turing, we smooth the counts of N_c (frequencies of frequency c) by replacing all zeroes. Also, we make the assumption that counts c > 5 are accurate and do not need discounting. Due to the density of the training set, there are no zeroes for values of N_c below this threshold. The final equation for the discounted estimate c* is equation 4.31 in the book, with the value of k = 5. The book also describes treating N-grams with low counts (especially 1) as if the count were 0; however, this resulted in a greater perplexity for all sets, and a greater Enron word error rate.
+Generally, Good-Turing is used in conjunction with backoff or interpolation algorithms; however, this is not possible in this case since it is merely a unigram model.
+
+Results
+The preplexity actually slightly worsened from the given EmpiricalUnigramLanguageModel class. However, it did manage to get one Enron sentence correct (percent correct of 0.8621).
+
+Training set perplexity:      884.1621
+Test set perplexity:          935.4208
+Enron Jumble Perplexity:      2619.5806
+Enron Word Error Rate:        0.7436
+Enron Percent Correct:        0.8621%
+
+Enron WER Baselines: 
+ Worst Path:                  0.9692
+ Random Path:                 0.7609
+
+
+Error Analysis
+Most generated sentences and Enron guesses were just as nonsensical as those given by the default unigram model. This is largely due to the fact that a unigram language model is not a very effective method of modeling English (or any language). Since the location of previous words has no effect on the probability of a word, and only its frequency within the corpus affects this, it is not unexpected that sentences are nonsensical.
+
+Examples of Enron guesses:
+"sure for talk or you later today tomorrow to"
+"in i the all office am day thursday"
+"however one thing is the same we move to continue and change at a fast pace"
+
+The slight improvement in percent correct was likely due to chance. The last guess ("however...") is our model's lone correct guess.
+
+Probability Distribution
+Due to the discounted counts, the total does not add up to one. In order to compensate for this, we introduced a normalization factor which each probability estimate was multiplied by. The normalization constant was determined by dividing the original total number of words by the discounted total (i.e. the sum of the discounted counts of all words). This results in a proper probability distribution because the counts will now still sum to the original total after multiplying by the normalization factor.
