@@ -22,6 +22,7 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
   private CounterMap<String, String> bigramCounter;
   private double unigramTotal, bigramTotal;
   private double alpha1, alpha2;
+  private double unigramSum;
 
   // -----------------------------------------------------------------------
 
@@ -33,6 +34,7 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
     bigramCounter = new CounterMap<String, String>();
     unigramTotal = Double.NaN;
     bigramTotal = Double.NaN;
+    unigramSum = 0.0;
   }
 
   /**
@@ -79,6 +81,12 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
     // Use fixed values for interpolation weighting
     alpha1 = 0.75;
     alpha2 = 0.25;
+    unigramSum = 0.0;
+    Iterator<String> iter = unigramCounter.keySet().iterator();
+    while (iter.hasNext()) {
+    	String curWord = iter.next();
+    	unigramSum += getUnigramProbability(curWord);
+    }
   }
   // -----------------------------------------------------------------------
 
@@ -110,13 +118,6 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
 	  double unigramCount = unigramCounter.getCount(prevWord);
 	  double bigramCount = bigramCounter.getCount(prevWord, word);
 	  if (bigramCount == 0) {
-		  double unigramSum = 0.0;
-		  Iterator<String> iter = unigramCounter.keySet().iterator();
-		  while (iter.hasNext()) {
-			  String curWord = iter.next();
-			  if (bigramCounter.getCount(prevWord, curWord) == 0)
-				  unigramSum += getUnigramProbability(curWord);
-		  }
 		  return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
 	  }
 	  else {
