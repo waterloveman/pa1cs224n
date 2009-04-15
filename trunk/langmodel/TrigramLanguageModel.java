@@ -136,7 +136,6 @@ public class TrigramLanguageModel implements LanguageModel {
    * the sentence (including a final stop token).
    */
   public double getSentenceProbability(List<String> sentence) {
-    System.out.println("--------------------------------------------");
     List<String> stoppedSentence = new ArrayList<String>(sentence);
     stoppedSentence.add(0, START);
     stoppedSentence.add(0, START);
@@ -144,7 +143,6 @@ public class TrigramLanguageModel implements LanguageModel {
     double logProb = 0.0;
     for (int index = 2; index < stoppedSentence.size(); index++) {
       logProb += Math.log(getWordProbability(stoppedSentence, index));
-      System.out.println(getWordProbability(stoppedSentence, index));
     }
     return Math.exp(logProb);
   }
