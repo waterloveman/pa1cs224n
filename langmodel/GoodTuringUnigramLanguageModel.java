@@ -101,6 +101,9 @@ public class GoodTuringUnigramLanguageModel implements LanguageModel {
 	  }
 	  double N1 = freqOfFreq.get(1);
 	  double Nc = freqOfFreq.get((int) c);
+	  if(c == 0) {
+		  return N1 / Nc;
+	  }
 	  double Nc1 = freqOfFreq.get((int) (c+1));
 	  double Nk1 = freqOfFreq.get((int) (k+1));
 	  double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
