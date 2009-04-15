@@ -63,6 +63,8 @@ public class EmpiricalUnigramLanguageModel implements LanguageModel {
     total = wordCounter.totalCount();
   }
 
+  public void validate(Collection<List<String>> validationData) {
+  }
 
   // -----------------------------------------------------------------------
 

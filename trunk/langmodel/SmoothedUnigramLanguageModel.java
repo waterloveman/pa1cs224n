@@ -117,6 +117,8 @@ public class SmoothedUnigramLanguageModel implements LanguageModel {
 //	  return 0;
 //  }
 
+  public void validate(Collection<List<String>> sentences) {
+  }
 
   // -----------------------------------------------------------------------
 

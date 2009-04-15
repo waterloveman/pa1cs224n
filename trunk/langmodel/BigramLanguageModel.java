@@ -20,9 +20,8 @@ public class BigramLanguageModel implements LanguageModel {
   
   private Counter<String> unigramCounter;
   private CounterMap<String, String> bigramCounter;
-  private double unigramTotal;
-  private double bigramTotal;
-
+  private double unigramTotal, bigramTotal;
+  private double alpha1, alpha2;
 
   // -----------------------------------------------------------------------
 
@@ -76,23 +75,25 @@ public class BigramLanguageModel implements LanguageModel {
     bigramTotal = bigramCounter.totalCount();
   }
 
-
+  public void validate(Collection<List<String>> validationData) {
+    // Use fixed values for interpolation weighting
+    System.out.println("Using fixed weights:");
+    alpha1 = 0.75;
+    alpha2 = 0.25;
+  }
   // -----------------------------------------------------------------------
 
-//  private double getWordProbability(String word) {
-//    double count = unigramCounter.getCount(word);
-//    if (count == 0) {                   // unknown word
-//      // System.out.println("UNKNOWN WORD: " + sentence.get(index));
-//      return 1.0 / (total + 1.0);
-//    }
-//    return count / (total + 1.0);
-//  }
+  private double getUnigramProbability(String word) {
+    double count = unigramCounter.getCount(word);
+    if (count == 0) count = 1.0;
+    return count / (unigramTotal + 1.0);
+  }
 
   private double getBigramProbability(String prevWord, String word) {
-    // TODO: ACCOUNT FOR UNKNOWN WORDS
-    double bigramCount = bigramCounter.getCount(prevWord, word);
     double unigramCount = unigramCounter.getCount(prevWord);
-    return bigramCount/unigramCount;
+    double bigramCount = bigramCounter.getCount(prevWord, word);
+    if (bigramCount == 0) bigramCount = 1.0;
+    return bigramCount / (unigramCount + 1.0) ;
   }
 
   /**
@@ -103,10 +104,10 @@ public class BigramLanguageModel implements LanguageModel {
    */
   public double getWordProbability(List<String> sentence, int index) {
     String word = sentence.get(index);
-    // Assuming an index >=1 (so next line is sorta useless)
-    //if (index == 0) return getWordProbability(word);
     String prevWord = sentence.get(index - 1);
-    return getBigramProbability(prevWord, word);
+    double bigramProb = getBigramProbability(prevWord, word);
+    double unigramProb = getUnigramProbability(word);
+    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
   }
 
   /**
@@ -118,11 +119,11 @@ public class BigramLanguageModel implements LanguageModel {
     List<String> stoppedSentence = new ArrayList<String>(sentence);
     stoppedSentence.add(0, START);
     stoppedSentence.add(STOP);
-    double probability = 1.0;
+    double logProb = 0.0;
     for (int index = 1; index < stoppedSentence.size(); index++) {
-      probability *= getWordProbability(stoppedSentence, index);
+      logProb += Math.log(getWordProbability(stoppedSentence, index));
     }
-    return probability;
+    return Math.exp(logProb);
   }
 
   /**
@@ -134,9 +135,8 @@ public class BigramLanguageModel implements LanguageModel {
 
     int numWordsToCheck = 500; // Totally arbitrary number!
     int counter = 0;
-    String[] stringArr = new String[10]; // dummy array
 
-    String[] keySetWords = bigramCounter.keySet().toArray(stringArr);
+    String[] keySetWords = bigramCounter.keySet().toArray(new String[0]);
     for (int i = 0; i < numWordsToCheck; i++) {
       int randomIndex = generator.nextInt(keySetWords.length);
       String prevWord = keySetWords[randomIndex];
@@ -144,11 +144,10 @@ public class BigramLanguageModel implements LanguageModel {
       double sum = 0.0;
       Counter<String> curCounter = bigramCounter.getCounter(prevWord);
       for (String word : curCounter.keySet()) {
-	System.out.println("CurWord is " + word);
 	sum += getBigramProbability(prevWord, word);
       }
 
-      System.out.println("Prev word is " + prevWord + ". Sum: " + sum);
+      sum += 1.0 / (bigramCounter.getCounter(prevWord).totalCount() + 1.0);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
@@ -162,11 +161,12 @@ public class BigramLanguageModel implements LanguageModel {
    * on [0, 1]; then we step through the vocabulary eating up probability
    * mass until we reach our sample.
    */
-  public String generateWord() {
+  public String generateWord(String prevWord) {
     double sample = Math.random();
     double sum = 0.0;
-    for (String word : unigramCounter.keySet()) {
-      sum += unigramCounter.getCount(word) / unigramTotal;
+    Counter<String> counter = bigramCounter.getCounter(prevWord);
+    for (String word : counter.keySet()) {
+      sum += counter.getCount(word) / counter.totalCount();
       if (sum > sample) {
         return word;
       }
@@ -180,10 +180,10 @@ public class BigramLanguageModel implements LanguageModel {
    */
   public List<String> generateSentence() {
     List<String> sentence = new ArrayList<String>();
-    String word = generateWord();
+    String word = generateWord(START);
     while (!word.equals(STOP)) {
       sentence.add(word);
-      word = generateWord();
+      word = generateWord(word);
     }
     return sentence;
   }
