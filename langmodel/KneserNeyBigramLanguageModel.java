@@ -77,23 +77,51 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
 
   public void validate(Collection<List<String>> validationData) {
     // Use fixed values for interpolation weighting
-    System.out.println("Using fixed weights:");
     alpha1 = 0.75;
     alpha2 = 0.25;
   }
   // -----------------------------------------------------------------------
 
   private double getUnigramProbability(String word) {
-    double count = unigramCounter.getCount(word);
-    if (count == 0) count = 1.0;
-    return count / (unigramTotal + 1.0);
+	  Iterator<String> iter = unigramCounter.keySet().iterator();
+	  double num = 0;
+      while (iter.hasNext()) {
+    	  String curWord = iter.next();
+    	  if (bigramCounter.getCount(curWord, word) > 0) {
+    		  num++;
+    	  }
+      }
+      return num;
+  }
+
+  private double getAlpha(String word) {
+    double wordTotal = unigramCounter.getCount(word);
+    double alphaDiff = 0.0;
+    Iterator<String> iter = bigramCounter.getCounter(word).keySet().iterator();
+    while (iter.hasNext()) {
+      String curWord = iter.next();
+      double numerator = bigramCounter.getCount(word, curWord) - 0.75;
+      alphaDiff += (numerator / wordTotal);
+    }
+    return 1 - alphaDiff;
   }
 
   private double getBigramProbability(String prevWord, String word) {
-    double unigramCount = unigramCounter.getCount(prevWord);
-    double bigramCount = bigramCounter.getCount(prevWord, word);
-    if (bigramCount == 0) bigramCount = 1.0;
-    return bigramCount / (unigramCount + 1.0) ;
+	  double unigramCount = unigramCounter.getCount(prevWord);
+	  double bigramCount = bigramCounter.getCount(prevWord, word);
+	  if (bigramCount == 0) {
+		  double unigramSum = 0.0;
+		  Iterator<String> iter = unigramCounter.keySet().iterator();
+		  while (iter.hasNext()) {
+			  String curWord = iter.next();
+			  if (bigramCounter.getCount(prevWord, curWord) == 0)
+				  unigramSum += getUnigramProbability(curWord);
+		  }
+		  return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
+	  }
+	  else {
+		  return (bigramCount - 0.75) / unigramCount;
+	  }
   }
 
   /**
@@ -106,8 +134,7 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
     String word = sentence.get(index);
     String prevWord = sentence.get(index - 1);
     double bigramProb = getBigramProbability(prevWord, word);
-    double unigramProb = getUnigramProbability(word);
-    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
+    return bigramProb;
   }
 
   /**
@@ -140,14 +167,13 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
     for (int i = 0; i < numWordsToCheck; i++) {
       int randomIndex = generator.nextInt(keySetWords.length);
       String prevWord = keySetWords[randomIndex];
-
       double sum = 0.0;
       Counter<String> curCounter = bigramCounter.getCounter(prevWord);
       for (String word : curCounter.keySet()) {
+	//System.out.println("Probability for " + word + " is " + getBigramProbability(prevWord, word));
 	sum += getBigramProbability(prevWord, word);
       }
-
-      sum += 1.0 / (bigramCounter.getCounter(prevWord).totalCount() + 1.0);
+      sum += getAlpha(prevWord);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
