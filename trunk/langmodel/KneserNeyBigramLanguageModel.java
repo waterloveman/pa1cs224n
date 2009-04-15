@@ -118,7 +118,7 @@ public class KneserNeyBigramLanguageModel implements LanguageModel {
 	  double unigramCount = unigramCounter.getCount(prevWord);
 	  double bigramCount = bigramCounter.getCount(prevWord, word);
 	  if (bigramCount == 0) {
-		  return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
+		  return getAlpha(prevWord) * (getUnigramProbability(word) + 1.0) / (unigramSum + 1.0);
 	  }
 	  else {
 		  return (bigramCount - 0.75) / unigramCount;
