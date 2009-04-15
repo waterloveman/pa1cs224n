@@ -90,13 +90,13 @@ public class FixedInterpBigramLanguageModel implements LanguageModel {
       return (count - 0.75) / unigramTotal;
   }
 
-  private double getAlpha(String word) {
-    double wordTotal = unigramCounter.getCount(word);
+  private double getAlpha(String prevWord) {
+    double wordTotal = unigramCounter.getCount(prevWord);
     double alphaDiff = 0.0;
-    Iterator<String> iter = bigramCounter.getCounter(word).keySet().iterator();
+    Iterator<String> iter = bigramCounter.getCounter(prevWord).keySet().iterator();
     while (iter.hasNext()) {
-      String curWord = iter.next();
-      double numerator = bigramCounter.getCount(word, curWord);
+      String word = iter.next();
+      double numerator = bigramCounter.getCount(prevWord, word) - 0.75;
       alphaDiff += (numerator / wordTotal);
     }
     return 1 - alphaDiff;
@@ -113,7 +113,7 @@ public class FixedInterpBigramLanguageModel implements LanguageModel {
 	if (bigramCounter.getCount(prevWord, curWord) == 0)
 	  unigramSum += getUnigramProbability(curWord);
       }
-      return getAlpha(word) * getUnigramProbability(word) / unigramSum;
+      return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
     }
     else
       return (bigramCount - 0.75) / unigramCount;
@@ -164,14 +164,13 @@ public class FixedInterpBigramLanguageModel implements LanguageModel {
       int randomIndex = generator.nextInt(keySetWords.length);
       String prevWord = keySetWords[randomIndex];
 
-      System.out.println("\nCalculating for: " + prevWord);
-      System.out.println("------------------------");
       double sum = 0.0;
       Counter<String> curCounter = bigramCounter.getCounter(prevWord);
       for (String word : curCounter.keySet()) {
-	System.out.println("Probability for " + word + " is " + getBigramProbability(prevWord, word));
 	sum += getBigramProbability(prevWord, word);
       }
+
+      sum += getAlpha(prevWord);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
