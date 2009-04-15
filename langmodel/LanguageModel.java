@@ -12,6 +12,8 @@ public interface LanguageModel {
 
   public void train(Collection<List<String>> trainingSentences);
 
+  public void validate(Collection<List<String>> validationData);
+
   public double getSentenceProbability(List<String> sentence);
 
   public double getWordProbability(List<String> sentence, int index);

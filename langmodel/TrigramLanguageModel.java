@@ -1,10 +1,11 @@
 package cs224n.langmodel;
 
 import cs224n.util.Counter;
+import cs224n.util.CounterMap;
+import cs224n.util.Pair;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.lang.*;
 
 /**
  * A dummy language model -- uses empirical unigram counts, plus a single
@@ -15,10 +16,14 @@ import java.util.List;
  */
 public class TrigramLanguageModel implements LanguageModel {
 
+  private static final String START = "<S>";
   private static final String STOP = "</S>";
   
-  private Counter<String> wordCounter;
-  private double total;
+  private Counter<String> unigramCounter;
+  private CounterMap<String, String> bigramCounter;
+  private CounterMap<Pair<String,String>, String> trigramCounter;
+  private double unigramTotal, bigramTotal, trigramTotal;
+  private double alpha1, alpha2, alpha3;
 
 
   // -----------------------------------------------------------------------
@@ -27,9 +32,12 @@ public class TrigramLanguageModel implements LanguageModel {
    * Constructs a new, empty unigram language model.
    */
   public TrigramLanguageModel() {
-    System.out.println("BLAAAAHsadjpoqwjepoqwe");
-    wordCounter = new Counter<String>();
-    total = Double.NaN;
+    unigramCounter = new Counter<String>();
+    bigramCounter = new CounterMap<String, String>();
+    trigramCounter = new CounterMap<Pair<String, String>, String>();
+    unigramTotal = Double.NaN;
+    bigramTotal = Double.NaN;
+    trigramTotal = Double.NaN;
   }
 
   /**
@@ -53,27 +61,63 @@ public class TrigramLanguageModel implements LanguageModel {
    * collection of sentences are compiled.
    */
   public void train(Collection<List<String>> sentences) {
-    wordCounter = new Counter<String>();
+    unigramCounter = new Counter<String>();
+    bigramCounter = new CounterMap<String, String>();
+    trigramCounter = new CounterMap<Pair<String, String>, String>();
+
     for (List<String> sentence : sentences) {
       List<String> stoppedSentence = new ArrayList<String>(sentence);
+      stoppedSentence.add(0, START);
+      stoppedSentence.add(0, START);
       stoppedSentence.add(STOP);
+      Pair<String, String> prevWords = new Pair<String, String>(START, START);
+      int count = 0;
       for (String word : stoppedSentence) {
-        wordCounter.incrementCount(word, 1.0);
+        unigramCounter.incrementCount(word, 1.0);
+	if (count == 0) {
+	  count++;
+	  continue;
+	}
+	bigramCounter.incrementCount(prevWords.getSecond(), word, 1.0);
+	if (count == 1) {
+	  count++;
+	  continue;
+	}
+	trigramCounter.incrementCount(prevWords, word, 1.0);
+	prevWords = new Pair<String, String>(prevWords.getSecond(), word);
       }
     }
-    total = wordCounter.totalCount();
+    unigramTotal = unigramCounter.totalCount();
+    bigramTotal = bigramCounter.totalCount();
+    trigramTotal = trigramCounter.totalCount();
   }
 
+  public void validate(Collection<List<String>> validationData) {
+    alpha1 = 1;
+    alpha2 = 0.0;
+    alpha3 = 0.0;
+  }
 
   // -----------------------------------------------------------------------
 
-  private double getWordProbability(String word) {
-    double count = wordCounter.getCount(word);
-    if (count == 0) {                   // unknown word
-      // System.out.println("UNKNOWN WORD: " + sentence.get(index));
-      return 1.0 / (total + 1.0);
-    }
-    return count / (total + 1.0);
+  private double getUnigramProbability(String word) {
+    double count = unigramCounter.getCount(word);
+    if (count == 0) count = 1.0;
+    return count / (unigramTotal + 1.0);
+  }
+
+  private double getBigramProbability(String prevWord, String word) {
+    double unigramCount = unigramCounter.getCount(prevWord);
+    double bigramCount = bigramCounter.getCount(prevWord, word);
+    if (bigramCount == 0) bigramCount = 1.0;
+    return bigramCount / (unigramCount + 1.0) ;
+  }
+
+  private double getTrigramProbability(Pair<String, String> prevWords, String word) {
+    double bigramCount = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
+    double trigramCount = trigramCounter.getCount(prevWords, word);
+    if (trigramCount == 0) trigramCount = 1.0;
+    return trigramCount / (bigramCount + 1.0);
   }
 
   /**
@@ -84,7 +128,11 @@ public class TrigramLanguageModel implements LanguageModel {
    */
   public double getWordProbability(List<String> sentence, int index) {
     String word = sentence.get(index);
-    return getWordProbability(word);
+    Pair<String, String> prevWords = new Pair<String, String>(sentence.get(index - 2), sentence.get(index - 1));
+    double trigramProb = getTrigramProbability(prevWords, word);
+    double bigramProb = getBigramProbability(prevWords.getSecond(), word);
+    double unigramProb = getUnigramProbability(word);
+    return (alpha1 * trigramProb) + (alpha2 * bigramProb) + (alpha3 * unigramProb);
   }
 
   /**
@@ -94,33 +142,43 @@ public class TrigramLanguageModel implements LanguageModel {
    */
   public double getSentenceProbability(List<String> sentence) {
     List<String> stoppedSentence = new ArrayList<String>(sentence);
+    stoppedSentence.add(0, START);
+    stoppedSentence.add(0, START);
     stoppedSentence.add(STOP);
-    double probability = 1.0;
-    for (int index = 0; index < stoppedSentence.size(); index++) {
-      probability *= getWordProbability(stoppedSentence, index);
+    double logProb = 0.0;
+    for (int index = 2; index < stoppedSentence.size(); index++) {
+      logProb += Math.log(getWordProbability(stoppedSentence, index));
     }
-    return probability;
+    return Math.exp(logProb);
   }
 
   /**
    * checks if the probability distribution properly sums up to 1
    */
   public double checkModel() {
-    double sum = 0.0;
-    // since this is a unigram model, 
-    // the event space is everything in the vocabulary (including STOP)
-    // and a UNK token
+    Random generator = new Random();
+    double highestVarianceSum = 1.0; // Keep track of which sum differs from 1.0 the most
 
-    // this loop goes through the vocabulary (which includes STOP)
-    for (String word : wordCounter.keySet()) {
-      sum += getWordProbability(word);
+    int numWordsToCheck = 500; // Totally arbitrary number!
+    int counter = 0;
+
+    Object[] keySetWords = trigramCounter.keySet().toArray();
+    for (int i = 0; i < numWordsToCheck; i++) {
+      int randomIndex = generator.nextInt(keySetWords.length);
+      Pair<String, String> prevWords = (Pair<String, String>)keySetWords[randomIndex];
+
+      double sum = 0.0;
+      Counter<String> curCounter = trigramCounter.getCounter(prevWords);
+      for (String word : curCounter.keySet()) {
+	sum += getTrigramProbability(prevWords, word);
+      }
+
+      sum += 1.0 / (trigramCounter.getCounter(prevWords).totalCount() + 1.0);
+
+      if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
+	highestVarianceSum = sum;
     }
-    
-    // remember to add the UNK. In this TrigramLanguageModel
-    // we assume there is only one UNK, so we add...
-    sum += 1.0 / (total + 1.0);
-    
-    return sum;
+    return highestVarianceSum;
   }
   
   /**
@@ -129,11 +187,12 @@ public class TrigramLanguageModel implements LanguageModel {
    * on [0, 1]; then we step through the vocabulary eating up probability
    * mass until we reach our sample.
    */
-  public String generateWord() {
+  public String generateWord(Pair<String, String> prevWords) {
     double sample = Math.random();
     double sum = 0.0;
-    for (String word : wordCounter.keySet()) {
-      sum += wordCounter.getCount(word) / total;
+    Counter<String> counter = trigramCounter.getCounter(prevWords);
+    for (String word : counter.keySet()) {
+      sum += counter.getCount(word) / counter.totalCount();
       if (sum > sample) {
         return word;
       }
@@ -147,10 +206,12 @@ public class TrigramLanguageModel implements LanguageModel {
    */
   public List<String> generateSentence() {
     List<String> sentence = new ArrayList<String>();
-    String word = generateWord();
+    Pair<String, String> prevWords = new Pair<String, String>(START, START);
+    String word = generateWord(prevWords);
     while (!word.equals(STOP)) {
       sentence.add(word);
-      word = generateWord();
+      prevWords = new Pair<String, String>(prevWords.getSecond(), word);
+      word = generateWord(prevWords);
     }
     return sentence;
   }
