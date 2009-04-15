@@ -77,42 +77,71 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
 
   public void validate(Collection<List<String>> validationData) {
     // Initialize weights
-    alpha1 = 0.25;
-    alpha2 = 0.75;
+    //alpha1 = 0.25;
+    //alpha2 = 0.75;
 
     Counter<String> backupUnigramCounter = copyCounter(unigramCounter);
     CounterMap<String,String> backupBigramCounter = copyCounterMap(bigramCounter);
     train(validationData);
 
-    for (int i = 0; i < 50; i++) {
-      System.out.println(alpha1 + " " + alpha2);
-      double c1 = 0.0;
-      double c2 = 0.0;
-      Iterator<String> iter = bigramCounter.keySet().iterator();
-      while(iter.hasNext()) {
-	String prevWord = iter.next();
-	Counter<String> wordCounter = bigramCounter.getCounter(prevWord);
-	Iterator<String> wordIter = wordCounter.keySet().iterator();
-	while(wordIter.hasNext()) {
-	  String curWord = wordIter.next();
-	  double bigramCount = bigramCounter.getCount(prevWord, curWord);
-	  double probBigramMLE = getBigramProbability(prevWord, curWord);
-	  double probUnigramMLE = getUnigramProbability(curWord);
-	  double c1Numerator = bigramCount * alpha1 * probBigramMLE;
-	  double c2Numerator = bigramCount * alpha2 * probUnigramMLE;
-	  double denominator = (alpha1 * probBigramMLE) + (alpha2 * probUnigramMLE);
-	  c1 += (c1Numerator / denominator);
-	  c2 += (c2Numerator / denominator);
-	}
+    double delta = 0.05;
+    double maxLL = 0.0;
+    alpha1 = 0.0;
+    alpha2 = 1.0;
+    for (double inc = 0.0; inc <= 1.0; inc += delta) {
+      double tempAlpha1 = inc;
+      double tempAlpha2 = 1.0 - inc;
+      double logLike = calculateLogLike(validationData);
+      if (logLike > maxLL) {
+	alpha1 = tempAlpha1;
+	alpha2 = tempAlpha2;
+	maxLL = logLike;
       }
-      alpha1 = c1 / (c1 + c2);
-      alpha2 = c2 / (c1 + c2);
     }
+
+    System.out.println("A1 " + alpha1 + " A2" + alpha2);
+
+   // for (int i = 0; i < 50; i++) {
+   //   System.out.println(alpha1 + " " + alpha2);
+   //   double c1 = 0.0;
+   //   double c2 = 0.0;
+   //   Iterator<String> iter = bigramCounter.keySet().iterator();
+   //   while(iter.hasNext()) {
+   //     String prevWord = iter.next();
+   //     Counter<String> wordCounter = bigramCounter.getCounter(prevWord);
+   //     Iterator<String> wordIter = wordCounter.keySet().iterator();
+   //     while(wordIter.hasNext()) {
+   //       String curWord = wordIter.next();
+   //       double bigramCount = bigramCounter.getCount(prevWord, curWord);
+   //       double probBigramMLE = getBigramProbability(prevWord, curWord);
+   //       double probUnigramMLE = getUnigramProbability(curWord);
+   //       double c1Numerator = bigramCount * alpha1 * probBigramMLE;
+   //       double c2Numerator = bigramCount * alpha2 * probUnigramMLE;
+   //       double denominator = (alpha1 * probBigramMLE) + (alpha2 * probUnigramMLE);
+   //       c1 += (c1Numerator / denominator);
+   //       c2 += (c2Numerator / denominator);
+   //     }
+   //   }
+   //   alpha1 = c1 / (c1 + c2);
+   //   alpha2 = c2 / (c1 + c2);
+   // }
     unigramCounter = backupUnigramCounter;
     bigramCounter = backupBigramCounter;
   }
   // -----------------------------------------------------------------------
   
+  private double calculateLogLike(Collection<List<String>> data) {
+    double sum = 0.0;
+    double numSentences = 0.0;
+    for (List<String> sentence : data) {
+      for (int i = 1; i < sentence.size(); i++) {
+	sum += Math.log(getBigramProbability(sentence.get(i-1), sentence.get(i)));
+      }
+      numSentences += 1.0;
+    }
+    return sum / numSentences;
+  }
+
   private Counter<String> copyCounter(Counter<String> counter) {
     Counter<String> newCounter = new Counter<String>();
     Iterator<String> iter = counter.keySet().iterator();
