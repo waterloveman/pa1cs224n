@@ -230,7 +230,8 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
 	sum += getTrigramProbability(prevWords, word);
       }
 
-      sum += 1.0 / (trigramCounter.getCounter(prevWords).totalCount() + 1.0);
+      // Add on discounted mass
+      sum += getTwoAlpha(prevWords);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;

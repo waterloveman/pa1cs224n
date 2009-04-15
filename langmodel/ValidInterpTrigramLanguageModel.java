@@ -175,8 +175,10 @@ public class ValidInterpTrigramLanguageModel implements LanguageModel {
     alpha1 = maxAlpha1;
     alpha2 = maxAlpha2;
     alpha3 = maxAlpha3;
-    System.out.println("Alpha values: " + alpha1 + " " + alpha2 + " " + alpha3);
 
+
+    // Iterative method which we decided to scrap
+    
    // for (int i = 0; i < 50; i++) {
    //   System.out.println(alpha1 + " " + alpha2 + " " + alpha3);
    //   double c1 = 0.0;
@@ -209,6 +211,9 @@ public class ValidInterpTrigramLanguageModel implements LanguageModel {
     unigramCounter = backupUnigramCounter;
     bigramCounter = backupBigramCounter;
     trigramCounter = backupTrigramCounter;
+    unigramTotal = unigramCounter.totalCount();
+    bigramTotal = bigramCounter.totalCount();
+    trigramTotal = trigramCounter.totalCount();
   }
 
   private double calculateLogLike(Collection<List<String>> data) {
@@ -340,6 +345,11 @@ public class ValidInterpTrigramLanguageModel implements LanguageModel {
    * checks if the probability distribution properly sums up to 1
    */
   public double checkModel() {
+    System.out.println("A1 "+ checkTrigramModel() + " A2 " + checkBigramModel() + " A3 " + checkUnigramModel());
+    return (alpha1 * checkTrigramModel()) + (alpha2 * checkBigramModel()) + (alpha3 * checkUnigramModel());
+  }
+
+  private double checkTrigramModel() {
     Random generator = new Random();
     double highestVarianceSum = 1.0; // Keep track of which sum differs from 1.0 the most
 
@@ -357,6 +367,8 @@ public class ValidInterpTrigramLanguageModel implements LanguageModel {
 	sum += getTrigramProbability(prevWords, word);
       }
 
+      // Add on missing discounted mass
+
       //sum += 1.0 / (curCounter.totalCount() + 1.0);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
@@ -364,6 +376,46 @@ public class ValidInterpTrigramLanguageModel implements LanguageModel {
     }
     return highestVarianceSum;
   }
+
+  private double checkBigramModel() {
+    Random generator = new Random();
+    double highestVarianceSum = 1.0; // Keep track of which sum differs from 1.0 the most
+
+    int numWordsToCheck = 500; // Totally arbitrary number!
+    int counter = 0;
+
+    String[] keySetWords = bigramCounter.keySet().toArray(new String[0]);
+    for (int i = 0; i < numWordsToCheck; i++) {
+      int randomIndex = generator.nextInt(keySetWords.length);
+      String prevWord = keySetWords[randomIndex];
+
+      double sum = 0.0;
+      Counter<String> curCounter = bigramCounter.getCounter(prevWord);
+      for (String word : curCounter.keySet()) {
+	sum += getBigramProbability(prevWord, word);
+      }
+
+      // Add on discounted mass
+      sum +=  getAlpha(prevWord);
+
+      if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
+	highestVarianceSum = sum;
+    }
+    return highestVarianceSum;
+  }
+
+  private double checkUnigramModel() {
+    double sum = 0.0;
+
+    for (String word : unigramCounter.keySet()) {
+      sum += getUnigramProbability(word);
+    }
+    
+    sum += (unigramCounter.size() * 0.75) / (unigramTotal);
+
+    return sum;
+  }
+
   
   /**
    * Returns a random word sampled according to the model.  A simple
