@@ -17,7 +17,7 @@ public class AbsoluteDiscountUnigramLanguageModel implements LanguageModel {
   
   private Counter<String> wordCounter;
   private double total;
-  private double norm;
+  private double diff;
   
   private HashMap<Integer, Integer> freqOfFreq;
   
@@ -32,7 +32,6 @@ public class AbsoluteDiscountUnigramLanguageModel implements LanguageModel {
 	freqOfFreq = new HashMap<Integer, Integer>();
     wordCounter = new Counter<String>();
     total = Double.NaN;
-    norm = 1.0;
   }
 
   /**
@@ -80,49 +79,40 @@ public class AbsoluteDiscountUnigramLanguageModel implements LanguageModel {
     }
     //normalize total
     Iterator<Integer> counts = freqOfFreq.keySet().iterator();
-    norm = 0;
+    diff = total;
     while(counts.hasNext())
     {
     	int i = counts.next();
     	if (i == 0) {
-    		norm += 1;
+    		diff -= 1;
     	}
     	else {
-    		norm += freqOfFreq.get(i)*goodTuring(i);
+    		diff -= freqOfFreq.get(i) * absoluteDiscounting(i);
     	}
     }
-    norm = total / norm;
-  }
-  
-  private double goodTuring(double c) {
-	  double k = 5;
-	  if(c > k) {
-		  return c;
-	  }
-	  double N1 = freqOfFreq.get(1);
-	  double Nc = freqOfFreq.get((int) c);
-	  double Nc1 = freqOfFreq.get((int) (c+1));
-	  double Nk1 = freqOfFreq.get((int) (k+1));
-	  double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
-	  return cStar;
+//    System.out.println("\n\n");
+//    System.out.println("diff: " + diff);
+//    for(double d = 0; d < 7; d++) {
+//    	System.out.println(d + ": " + absoluteDiscounting(d));
+//    }
+//    System.out.println("\n\n");
   }
   
   private double absoluteDiscounting(double c) {
+	  double discount = 0.75;
 	  if(c > 0) {
-		  return c - 0.75;
+		  return c - discount;
 	  }
-	  return 0;
-  }
-
-  public void validate(Collection<List<String>> sentences) {
+	  
+	  return diff;
   }
 
   // -----------------------------------------------------------------------
 
   private double getWordProbability(String word) {
     double count = wordCounter.getCount(word);
-    count = goodTuring(count);
-    return count*norm / total;
+    count = absoluteDiscounting(count);
+    return count / total;
   }
 
   /**
@@ -165,9 +155,9 @@ public class AbsoluteDiscountUnigramLanguageModel implements LanguageModel {
       sum += getWordProbability(word);
     }
     
-    // remember to add the UNK. In this AbsoluteDiscountUnigramLanguageModel
+    // remember to add the UNK. In this AbsoluteDiscountingUnigramLanguageModel
     // we assume there is only one UNK, so we add...
-    sum += 1.0 / (total + 1.0);
+    sum += (diff + 1.0) / (total);
     
     return sum;
   }
@@ -203,6 +193,11 @@ public class AbsoluteDiscountUnigramLanguageModel implements LanguageModel {
     }
     return sentence;
   }
+
+public void validate(Collection<List<String>> validationData) {
+	// TODO Auto-generated method stub
+	
+}
 
 }
 
