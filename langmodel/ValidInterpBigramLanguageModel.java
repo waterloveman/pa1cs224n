@@ -85,19 +85,21 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
     train(validationData);
 
     double delta = 0.05;
-    double maxLL = 0.0;
-    alpha1 = 0.0;
-    alpha2 = 1.0;
+    double maxLL = Double.NEGATIVE_INFINITY;
+    double maxAlpha1 = 0.0;
+    double maxAlpha2 = 1.0;
     for (double inc = 0.0; inc <= 1.0; inc += delta) {
-      double tempAlpha1 = inc;
-      double tempAlpha2 = 1.0 - inc;
+      alpha1 = inc;
+      alpha2 = 1.0 - inc;
       double logLike = calculateLogLike(validationData);
       if (logLike > maxLL) {
-	alpha1 = tempAlpha1;
-	alpha2 = tempAlpha2;
+	maxAlpha1 = alpha1;
+	maxAlpha2 = alpha2;
 	maxLL = logLike;
       }
     }
+    alpha1 = maxAlpha1;
+    alpha2 = maxAlpha2;
 
     System.out.println("A1 " + alpha1 + " A2" + alpha2);
 
@@ -135,7 +137,7 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
     double numSentences = 0.0;
     for (List<String> sentence : data) {
       for (int i = 1; i < sentence.size(); i++) {
-	sum += Math.log(getBigramProbability(sentence.get(i-1), sentence.get(i)));
+	sum += Math.log(getProbability(sentence.get(i-1), sentence.get(i)));
       }
       numSentences += 1.0;
     }
@@ -170,15 +172,45 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
 
   private double getUnigramProbability(String word) {
     double count = unigramCounter.getCount(word);
-    if (count == 0) count = 1.0;
-    return count / (unigramTotal + 1.0);
+    if (count == 0) 
+      return (unigramCounter.size() * 0.75) / unigramTotal;
+    else
+      return (count - 0.75) / unigramTotal;
+  }
+
+  private double getAlpha(String prevWord) {
+    double wordTotal = unigramCounter.getCount(prevWord);
+    double alphaDiff = 0.0;
+    Iterator<String> iter = bigramCounter.getCounter(prevWord).keySet().iterator();
+    while (iter.hasNext()) {
+      String word = iter.next();
+      double numerator = bigramCounter.getCount(prevWord, word) - 0.75;
+      alphaDiff += (numerator / wordTotal);
+    }
+    return 1 - alphaDiff;
   }
 
   private double getBigramProbability(String prevWord, String word) {
     double unigramCount = unigramCounter.getCount(prevWord);
     double bigramCount = bigramCounter.getCount(prevWord, word);
-    if (bigramCount == 0) bigramCount = 1.0;
-    return bigramCount / (unigramCount + 1.0) ;
+    if (bigramCount == 0) {
+      double unigramSum = 0.0;
+      Iterator<String> iter = unigramCounter.keySet().iterator();
+      while (iter.hasNext()) {
+	String curWord = iter.next();
+	if (bigramCounter.getCount(prevWord, curWord) == 0)
+	  unigramSum += getUnigramProbability(curWord);
+      }
+      return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
+    }
+    else
+      return (bigramCount - 0.75) / unigramCount;
+  }
+
+  private double getProbability(String prevWord, String word) {
+    double bigramProb = getBigramProbability(prevWord, word);
+    double unigramProb = getUnigramProbability(word);
+    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
   }
 
   /**
@@ -190,9 +222,7 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
   public double getWordProbability(List<String> sentence, int index) {
     String word = sentence.get(index);
     String prevWord = sentence.get(index - 1);
-    double bigramProb = getBigramProbability(prevWord, word);
-    double unigramProb = getUnigramProbability(word);
-    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
+    return getProbability(prevWord, word);
   }
 
   /**
@@ -232,7 +262,7 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
 	sum += getBigramProbability(prevWord, word);
       }
 
-      sum += 1.0 / (bigramCounter.getCounter(prevWord).totalCount() + 1.0);
+      sum +=  getAlpha(prevWord);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
