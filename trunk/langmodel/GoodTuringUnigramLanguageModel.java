@@ -29,7 +29,7 @@ public class GoodTuringUnigramLanguageModel implements LanguageModel {
    * Constructs a new, empty unigram language model.
    */
   public GoodTuringUnigramLanguageModel() {
-	freqOfFreq = new HashMap<Integer, Integer>();
+    freqOfFreq = new HashMap<Integer, Integer>();
     wordCounter = new Counter<String>();
     total = Double.NaN;
     norm = 1.0;

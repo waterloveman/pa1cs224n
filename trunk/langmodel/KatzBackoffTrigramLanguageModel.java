@@ -22,7 +22,9 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
   private Counter<String> unigramCounter;
   private CounterMap<String, String> bigramCounter;
   private CounterMap<Pair<String,String>, String> trigramCounter;
+  private HashMap<Integer, Integer> freqOfBigram;
   private double unigramTotal, bigramTotal, trigramTotal;
+  private double bigramNorm;
 
 
   // -----------------------------------------------------------------------
@@ -34,6 +36,8 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
     unigramCounter = new Counter<String>();
     bigramCounter = new CounterMap<String, String>();
     trigramCounter = new CounterMap<Pair<String, String>, String>();
+    freqOfBigram = new HashMap<Integer, Integer>();
+    bigramNorm = 1.0;
     unigramTotal = Double.NaN;
     bigramTotal = Double.NaN;
     trigramTotal = Double.NaN;
@@ -89,6 +93,50 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
     unigramTotal = unigramCounter.totalCount();
     bigramTotal = bigramCounter.totalCount();
     trigramTotal = trigramCounter.totalCount();
+
+    freqOfBigram.put(0, (int) bigramTotal);
+    Iterator<String> prevWords = bigramCounter.keySet().iterator();
+    while (prevWords.hasNext()) {
+	String curPrevWord = prevWords.next();
+	Iterator<String> words = bigramCounter.getCounter(curPrevWord).keySet().iterator();
+	while (words.hasNext()) {
+	  String curWord = words.next();
+	  int count = (int) bigramCounter.getCount(curPrevWord, curWord);
+	  if (freqOfBigram.containsKey(count))
+	    freqOfBigram.put(count, freqOfBigram.get(count) + 1);
+	  else
+	    freqOfBigram.put(count, 1);
+	}
+    }
+
+    //normalize total
+    Iterator<Integer> bigramCounts = freqOfBigram.keySet().iterator();
+    bigramNorm = 0;
+    while(bigramCounts.hasNext())
+    {
+    	int i = bigramCounts.next();
+    	if (i == 0)
+	  bigramNorm += 1;
+    	else
+    	  bigramNorm += freqOfBigram.get(i)* goodTuring(freqOfBigram, i);
+    }
+    bigramNorm = bigramTotal / bigramNorm;
+  }
+
+  private double goodTuring(HashMap<Integer,Integer> freqOfFreq, double c) {
+      double k = 10;
+      if(c > k) {
+	      return c;
+      }
+      double N1 = freqOfFreq.get(1);
+      double Nc = freqOfFreq.get((int) c);
+      if(c == 0) {
+	      return N1 / Nc;
+      }
+      double Nc1 = freqOfFreq.get((int) (c+1));
+      double Nk1 = freqOfFreq.get((int) (k+1));
+      double cStar = ((c+1)*(Nc1/Nc) - c*(k+1)*Nk1/N1) / (1 - (k+1)*Nk1/N1);
+      return cStar;
   }
 
   public void validate(Collection<List<String>> validationData) {
@@ -97,76 +145,39 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
 
   // -----------------------------------------------------------------------
 
-  private double getUnigramProbability(String word) {
-    double count = unigramCounter.getCount(word);
-    //if (count == 0) count = 1.0;
-    //return count / (unigramTotal + 1.0);
-    return count / unigramTotal;
-  }
-
   private double getBigramProbability(String prevWord, String word) {
-    double bigramCount = bigramCounter.getCount(prevWord, word);
-    if (bigramCount == 0) {
-      Counter<String> prevWordCounter = bigramCounter.getCounter(prevWord);
-      Iterator<String> prevWordCounterIter = prevWordCounter.keySet().iterator();
-
-      double alphaDiff = 0.0;
-      while(prevWordCounterIter.hasNext()) {
-	String curWord = prevWordCounterIter.next();
-  	double alphaNum = bigramCounter.getCount(prevWord, curWord) - 0.75;
-	double alphaDenom = unigramCounter.getCount(prevWord);
-	alphaDiff += (alphaNum / alphaDenom);
-      }
-
-      double alpha = 1 - alphaDiff;
-      double unigramMLE = getUnigramProbability(word);
-
-      Iterator<String> wordCounterIter = unigramCounter.keySet().iterator();
-      double unigramDenom = 0.0;
-      while(wordCounterIter.hasNext()) {
-	String curWord = wordCounterIter.next();
-	if (bigramCounter.getCount(prevWord, curWord) == 0)
-	  unigramDenom += getUnigramProbability(curWord);
-      }
-      return alpha * (unigramMLE / unigramDenom);
-    }
-    else {
-      double unigramCount = unigramCounter.getCount(prevWord);
-      return (bigramCount - 0.75) / unigramCount;
-    }
+    double count = bigramCounter.getCount(prevWord, word);
+    count = goodTuring(freqOfBigram, count);
+    return count * bigramNorm / bigramTotal;
   }
 
-  private double getTrigramProbability(Pair<String, String> prevWords, String word) {
+  private double getTwoAlpha(Pair<String,String> prevWords) {
+    double wordTotal = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
+    double alphaDiff = 0.0;
+    Iterator<String> iter = trigramCounter.getCounter(prevWords).keySet().iterator();
+    while (iter.hasNext()) {
+      String word = iter.next();
+      double numerator = trigramCounter.getCount(prevWords, word) - 0.75;
+      alphaDiff += (numerator / wordTotal);
+    }
+    return 1 - alphaDiff;
+  }
+
+  private double getTrigramProbability(Pair<String,String> prevWords, String word) {
+    double bigramCount = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
     double trigramCount = trigramCounter.getCount(prevWords, word);
-
     if (trigramCount == 0) {
-      Counter<String> prevWordCounter = trigramCounter.getCounter(prevWords);
-      Iterator<String> prevWordCounterIter = prevWordCounter.keySet().iterator();
-
-      double alphaDiff = 0.0;
-      while(prevWordCounterIter.hasNext()) {
-	String curWord = prevWordCounterIter.next();
-  	double alphaNum = trigramCounter.getCount(prevWords, curWord) - 0.75;
-	double alphaDenom = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
-	alphaDiff += (alphaNum / alphaDenom);
-      }
-
-      double alpha = 1 - alphaDiff;
-      double bigramProb = getBigramProbability(prevWords.getSecond(), word);
-
-      Iterator<String> wordCounterIter = unigramCounter.keySet().iterator();
-      double denom = 0.0;
-      while(wordCounterIter.hasNext()) {
-	String curWord = wordCounterIter.next();
+      double bigramSum = 0.0;
+      Iterator<String> iter = unigramCounter.keySet().iterator();
+      while (iter.hasNext()) {
+	String curWord = iter.next();
 	if (trigramCounter.getCount(prevWords, curWord) == 0)
-	  denom += getBigramProbability(prevWords.getSecond(), curWord);
+	  bigramSum += getBigramProbability(prevWords.getSecond(), curWord);
       }
-      return (alpha * bigramProb) / denom;
+      return getTwoAlpha(prevWords) * getBigramProbability(prevWords.getSecond(), word);
     }
-    else {
-      double bigramCount = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
+    else
       return (trigramCount - 0.75) / bigramCount;
-    }
   }
 
   /**
