@@ -23,8 +23,6 @@ public class TrigramLanguageModel implements LanguageModel {
   private CounterMap<String, String> bigramCounter;
   private CounterMap<Pair<String,String>, String> trigramCounter;
   private double unigramTotal, bigramTotal, trigramTotal;
-  private double alpha1, alpha2, alpha3;
-
 
   // -----------------------------------------------------------------------
 
@@ -93,9 +91,6 @@ public class TrigramLanguageModel implements LanguageModel {
   }
 
   public void validate(Collection<List<String>> validationData) {
-    alpha1 = 1;
-    alpha2 = 0.0;
-    alpha3 = 0.0;
   }
 
   // -----------------------------------------------------------------------
@@ -132,7 +127,7 @@ public class TrigramLanguageModel implements LanguageModel {
     double trigramProb = getTrigramProbability(prevWords, word);
     double bigramProb = getBigramProbability(prevWords.getSecond(), word);
     double unigramProb = getUnigramProbability(word);
-    return (alpha1 * trigramProb) + (alpha2 * bigramProb) + (alpha3 * unigramProb);
+    return trigramProb;
   }
 
   /**

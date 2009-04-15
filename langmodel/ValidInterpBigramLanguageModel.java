@@ -77,12 +77,15 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
 
   public void validate(Collection<List<String>> validationData) {
     // Initialize weights
-    alpha1 = 0.75;
-    alpha2 = 0.25;
+    alpha1 = 0.25;
+    alpha2 = 0.75;
 
+    Counter<String> backupUnigramCounter = copyCounter(unigramCounter);
+    CounterMap<String,String> backupBigramCounter = copyCounterMap(bigramCounter);
     train(validationData);
 
-    for (int i = 0; i < 500; i++) {
+    for (int i = 0; i < 50; i++) {
+      System.out.println(alpha1 + " " + alpha2);
       double c1 = 0.0;
       double c2 = 0.0;
       Iterator<String> iter = bigramCounter.keySet().iterator();
@@ -101,13 +104,40 @@ public class ValidInterpBigramLanguageModel implements LanguageModel {
 	  c1 += (c1Numerator / denominator);
 	  c2 += (c2Numerator / denominator);
 	}
-
-	alpha1 = c1 / (c1 + c2);
-	alpha2 = c2 / (c1 + c2);
       }
+      alpha1 = c1 / (c1 + c2);
+      alpha2 = c2 / (c1 + c2);
     }
+    unigramCounter = backupUnigramCounter;
+    bigramCounter = backupBigramCounter;
   }
   // -----------------------------------------------------------------------
+  
+  private Counter<String> copyCounter(Counter<String> counter) {
+    Counter<String> newCounter = new Counter<String>();
+    Iterator<String> iter = counter.keySet().iterator();
+    while(iter.hasNext()) {
+      String curWord = iter.next();
+      newCounter.setCount(curWord, counter.getCount(curWord));
+    }
+
+    return newCounter;
+  }
+
+  private CounterMap<String,String> copyCounterMap(CounterMap<String,String> counterMap) {
+    CounterMap<String,String> newCounterMap = new CounterMap<String,String>();
+    Iterator<String> iter = counterMap.keySet().iterator();
+    while(iter.hasNext()) {
+      String curWord = iter.next();
+      Iterator<String> wordIter = counterMap.getCounter(curWord).keySet().iterator();
+      while (wordIter.hasNext()) {
+	String curNextWord = wordIter.next();
+	newCounterMap.setCount(curWord, curNextWord, counterMap.getCount(curWord, curNextWord));
+      }
+    }
+
+    return newCounterMap;
+  }
 
   private double getUnigramProbability(String word) {
     double count = unigramCounter.getCount(word);
