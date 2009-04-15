@@ -81,9 +81,8 @@ public class KatzBackoffBigramLanguageModel implements LanguageModel {
 
   private double getUnigramProbability(String word) {
     double count = unigramCounter.getCount(word);
-    //if (count == 0) count = 1.0;
-    //return count / (unigramTotal + 1.0);
-    return count / unigramTotal; 
+    if (count == 0) count = 1.0;
+    return count / (unigramTotal + 1.0);
   }
 
   private double getBigramProbability(String prevWord, String word) {
@@ -127,8 +126,7 @@ public class KatzBackoffBigramLanguageModel implements LanguageModel {
   public double getWordProbability(List<String> sentence, int index) {
     String word = sentence.get(index);
     String prevWord = sentence.get(index - 1);
-    double bigramProb = getBigramProbability(prevWord, word);
-    return bigramProb;
+    return getBigramProbability(prevWord, word);
   }
 
   /**

@@ -21,7 +21,6 @@ public class BigramLanguageModel implements LanguageModel {
   private Counter<String> unigramCounter;
   private CounterMap<String, String> bigramCounter;
   private double unigramTotal, bigramTotal;
-  private double alpha1, alpha2;
 
   // -----------------------------------------------------------------------
 
@@ -76,10 +75,6 @@ public class BigramLanguageModel implements LanguageModel {
   }
 
   public void validate(Collection<List<String>> validationData) {
-    // Use fixed values for interpolation weighting
-    System.out.println("Using fixed weights:");
-    alpha1 = 0.75;
-    alpha2 = 0.25;
   }
   // -----------------------------------------------------------------------
 
@@ -107,7 +102,7 @@ public class BigramLanguageModel implements LanguageModel {
     String prevWord = sentence.get(index - 1);
     double bigramProb = getBigramProbability(prevWord, word);
     double unigramProb = getUnigramProbability(word);
-    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
+    return bigramProb;
   }
 
   /**

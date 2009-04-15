@@ -99,8 +99,9 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
 
   private double getUnigramProbability(String word) {
     double count = unigramCounter.getCount(word);
-    if (count == 0) count = 1.0;
-    return count / (unigramTotal + 1.0);
+    //if (count == 0) count = 1.0;
+    //return count / (unigramTotal + 1.0);
+    return count / unigramTotal;
   }
 
   private double getBigramProbability(String prevWord, String word) {
@@ -158,7 +159,7 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
       while(wordCounterIter.hasNext()) {
 	String curWord = wordCounterIter.next();
 	if (trigramCounter.getCount(prevWords, curWord) == 0)
-	  denom += getBigramProbability(prevWords.getSecond(), word);
+	  denom += getBigramProbability(prevWords.getSecond(), curWord);
       }
       return (alpha * bigramProb) / denom;
     }
@@ -166,7 +167,6 @@ public class KatzBackoffTrigramLanguageModel implements LanguageModel {
       double bigramCount = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
       return (trigramCount - 0.75) / bigramCount;
     }
-
   }
 
   /**
