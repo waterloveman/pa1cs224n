@@ -165,6 +165,7 @@ public class KatzBackoffBigramLanguageModel implements LanguageModel {
 	sum += getBigramProbability(prevWord, word);
       }
 
+      // Add on discounted mass
       sum += getAlpha(prevWord);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
