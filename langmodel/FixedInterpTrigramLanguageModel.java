@@ -103,22 +103,68 @@ public class FixedInterpTrigramLanguageModel implements LanguageModel {
 
   private double getUnigramProbability(String word) {
     double count = unigramCounter.getCount(word);
-    if (count == 0) count = 1.0;
-    return count / (unigramTotal + 1.0);
+    if (count == 0) 
+      return (unigramCounter.size() * 0.75) / unigramTotal;
+    else
+      return (count - 0.75) / unigramTotal;
+  }
+
+  private double getAlpha(String prevWord) {
+    double wordTotal = unigramCounter.getCount(prevWord);
+    double alphaDiff = 0.0;
+    Iterator<String> iter = bigramCounter.getCounter(prevWord).keySet().iterator();
+    while (iter.hasNext()) {
+      String word = iter.next();
+      double numerator = bigramCounter.getCount(prevWord, word) - 0.75;
+      alphaDiff += (numerator / wordTotal);
+    }
+    return 1 - alphaDiff;
+  }
+
+  private double getTwoAlpha(Pair<String,String> prevWords) {
+    double wordTotal = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
+    double alphaDiff = 0.0;
+    Iterator<String> iter = trigramCounter.getCounter(prevWords).keySet().iterator();
+    while (iter.hasNext()) {
+      String word = iter.next();
+      double numerator = trigramCounter.getCount(prevWords, word) - 0.75;
+      alphaDiff += (numerator / wordTotal);
+    }
+    return 1 - alphaDiff;
   }
 
   private double getBigramProbability(String prevWord, String word) {
     double unigramCount = unigramCounter.getCount(prevWord);
     double bigramCount = bigramCounter.getCount(prevWord, word);
-    if (bigramCount == 0) bigramCount = 1.0;
-    return bigramCount / (unigramCount + 1.0) ;
+    if (bigramCount == 0) {
+      double unigramSum = 0.0;
+      Iterator<String> iter = unigramCounter.keySet().iterator();
+      while (iter.hasNext()) {
+	String curWord = iter.next();
+	if (bigramCounter.getCount(prevWord, curWord) == 0)
+	  unigramSum += getUnigramProbability(curWord);
+      }
+      return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
+    }
+    else
+      return (bigramCount - 0.75) / unigramCount;
   }
 
   private double getTrigramProbability(Pair<String, String> prevWords, String word) {
     double bigramCount = bigramCounter.getCount(prevWords.getFirst(), prevWords.getSecond());
     double trigramCount = trigramCounter.getCount(prevWords, word);
-    if (trigramCount == 0) trigramCount = 1.0;
-    return trigramCount / (bigramCount + 1.0);
+    if (trigramCount == 0) {
+      double bigramSum = 0.0;
+      Iterator<String> iter = unigramCounter.keySet().iterator();
+      while (iter.hasNext()) {
+	String curWord = iter.next();
+	if (trigramCounter.getCount(prevWords, curWord) == 0)
+	  bigramSum += getBigramProbability(prevWords.getSecond(), curWord);
+      }
+      return getTwoAlpha(prevWords) * getBigramProbability(prevWords.getSecond(), word) / bigramSum;
+    }
+    else
+      return (trigramCount - 0.75) / bigramCount;
   }
 
   /**
@@ -174,7 +220,7 @@ public class FixedInterpTrigramLanguageModel implements LanguageModel {
 	sum += getTrigramProbability(prevWords, word);
       }
 
-      sum += 1.0 / (trigramCounter.getCounter(prevWords).totalCount() + 1.0);
+      sum += getTwoAlpha(prevWords);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
