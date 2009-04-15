@@ -81,40 +81,39 @@ public class KatzBackoffBigramLanguageModel implements LanguageModel {
 
   private double getUnigramProbability(String word) {
     double count = unigramCounter.getCount(word);
-    if (count == 0) count = 1.0;
-    return count / (unigramTotal + 1.0);
+    if (count == 0) 
+      return (unigramCounter.size() * 0.75) / unigramTotal;
+    else
+      return (count - 0.75) / unigramTotal;
+  }
+
+  private double getAlpha(String prevWord) {
+    double wordTotal = unigramCounter.getCount(prevWord);
+    double alphaDiff = 0.0;
+    Iterator<String> iter = bigramCounter.getCounter(prevWord).keySet().iterator();
+    while (iter.hasNext()) {
+      String word = iter.next();
+      double numerator = bigramCounter.getCount(prevWord, word) - 0.75;
+      alphaDiff += (numerator / wordTotal);
+    }
+    return 1 - alphaDiff;
   }
 
   private double getBigramProbability(String prevWord, String word) {
+    double unigramCount = unigramCounter.getCount(prevWord);
     double bigramCount = bigramCounter.getCount(prevWord, word);
     if (bigramCount == 0) {
-      Counter<String> prevWordCounter = bigramCounter.getCounter(prevWord);
-      Iterator<String> prevWordCounterIter = prevWordCounter.keySet().iterator();
-
-      double alphaDiff = 0.0;
-      while(prevWordCounterIter.hasNext()) {
-	String curWord = prevWordCounterIter.next();
-  	double alphaNum = bigramCounter.getCount(prevWord, curWord) - 0.75;
-	double alphaDenom = unigramCounter.getCount(prevWord);
-	alphaDiff += (alphaNum / alphaDenom);
-      }
-
-      double alpha = 1 - alphaDiff;
-      double unigramMLE = getUnigramProbability(word);
-
-      Iterator<String> wordCounterIter = unigramCounter.keySet().iterator();
-      double unigramDenom = 0.0;
-      while(wordCounterIter.hasNext()) {
-	String curWord = wordCounterIter.next();
+      double unigramSum = 0.0;
+      Iterator<String> iter = unigramCounter.keySet().iterator();
+      while (iter.hasNext()) {
+	String curWord = iter.next();
 	if (bigramCounter.getCount(prevWord, curWord) == 0)
-	  unigramDenom += getUnigramProbability(curWord);
+	  unigramSum += getUnigramProbability(curWord);
       }
-      return alpha * (unigramMLE / unigramDenom);
+      return getAlpha(prevWord) * getUnigramProbability(word) / unigramSum;
     }
-    else {
-      double unigramCount = unigramCounter.getCount(prevWord);
+    else
       return (bigramCount - 0.75) / unigramCount;
-    }
   }
 
   /**
@@ -166,7 +165,7 @@ public class KatzBackoffBigramLanguageModel implements LanguageModel {
 	sum += getBigramProbability(prevWord, word);
       }
 
-      sum += 1.0 / (bigramCounter.getCounter(prevWord).totalCount() + 1.0);
+      sum += getAlpha(prevWord);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;

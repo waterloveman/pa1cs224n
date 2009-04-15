@@ -119,6 +119,12 @@ public class FixedInterpBigramLanguageModel implements LanguageModel {
       return (bigramCount - 0.75) / unigramCount;
   }
 
+  private double getProbability(String prevWord, String word) {
+    double bigramProb = getBigramProbability(prevWord, word);
+    double unigramProb = getUnigramProbability(word);
+    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
+  }
+
   /**
    * Returns the probability, according to the model, of the word specified
    * by the argument sentence and index.  Smoothing is used, so that all
@@ -128,9 +134,7 @@ public class FixedInterpBigramLanguageModel implements LanguageModel {
   public double getWordProbability(List<String> sentence, int index) {
     String word = sentence.get(index);
     String prevWord = sentence.get(index - 1);
-    double bigramProb = getBigramProbability(prevWord, word);
-    double unigramProb = getUnigramProbability(word);
-    return (alpha1 * bigramProb) + (alpha2 * unigramProb);
+    return getProbability(prevWord, word);
   }
 
   /**
@@ -170,7 +174,7 @@ public class FixedInterpBigramLanguageModel implements LanguageModel {
 	sum += getBigramProbability(prevWord, word);
       }
 
-      sum += getAlpha(prevWord);
+      sum +=  getAlpha(prevWord);
 
       if (Math.abs(sum - 1.0) > Math.abs(highestVarianceSum - 1.0))
 	highestVarianceSum = sum;
